@@ -16,12 +16,14 @@ typedef enum {
     TOKEN_RPARENTHESIS,  
     TOKEN_SIN,   
     TOKEN_COS,    
+    TOKEN_POW,
     TOKEN_TAN,    
     TOKEN_SEC,    
     TOKEN_CSC,    
     TOKEN_COT,       
     TOKEN_LOG,   
-    TOKEN_LN,     
+    TOKEN_LN,
+    TOKEN_POW,     
     TOKEN_UNKNOWN     
 } TokenType;
 
@@ -92,21 +94,16 @@ int token_create(char text[100], Token struct_tokens[100]){
     for(i=0;i<token_count;i++){
         char *endptr;
         t.type = TOKEN_UNKNOWN;
-        strcpy(t.substr,"");
+        strcpy(t.substr, "");
         t.value = strtod(tokens[i], &endptr);
 
         if (*endptr == '\0' && endptr != tokens[i]){
-            char *end;
             t.type = TOKEN_NUMBER;
-            t.value = strtod(tokens[i],&end);
-            //printf("%lf\n",t.value);
         }
         else if (strcmp(tokens[i],"x")==0){
             t.type = TOKEN_VARIABLE;
         }
-        else if (strcmp(tokens[i],"+")==0){
-            t.type = TOKEN_PLUS;
-        }
+        
         else if (strcmp(tokens[i],"-")==0){
             t.type = TOKEN_MINUS;
         }
