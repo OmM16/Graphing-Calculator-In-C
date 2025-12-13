@@ -13,7 +13,15 @@ typedef enum {
     TOKEN_MULTIPLY,   
     TOKEN_DIVIDE,    
     TOKEN_LPARENTHESIS,     
-    TOKEN_RPARENTHESIS,     
+    TOKEN_RPARENTHESIS,  
+    TOKEN_SIN,   
+    TOKEN_COS,    
+    TOKEN_TAN,    
+    TOKEN_SEC,    
+    TOKEN_CSC,    
+    TOKEN_COT,       
+    TOKEN_LOG,   
+    TOKEN_LN,     
     TOKEN_UNKNOWN     
 } TokenType;
 
@@ -23,7 +31,7 @@ typedef struct {
     double value;     
 } Token;
 
-Token token_create(char text[100]);
+int token_create(char text[100], Token struct_tokens[100]);
 void parser(char text[100]);
 
 int main(){
@@ -41,17 +49,25 @@ int main(){
 }
 
 void parser(char text[100]){
-    token_create(text);
+    Token struct_tokens[100];
+    int token_count;
+    token_count = token_create(text, struct_tokens);
+    int i;
+    
+    for(i=0;i<token_count;i++){
+        printf("%s ",struct_tokens[i].substr);
+    }
+    
 }
 
-Token token_create(char text[100]){    
+
+int token_create(char text[100], Token struct_tokens[100]){    
     Token t;
 
     int i=0;
     Token token;
     char temp[100];
     char tokens[100][100];
-    Token struct_tokens[100];
     strcpy(temp,text);
 
     //printf("tdxt: %s",text);
@@ -72,14 +88,14 @@ Token token_create(char text[100]){
 
     int token_count = i;
     //printf("token_count : %d", token_count);
-    i=0;
 
     for(i=0;i<token_count;i++){
+        char *endptr;
         t.type = TOKEN_UNKNOWN;
         strcpy(t.substr,"");
-        t.value = 0;
+        t.value = strtod(tokens[i], &endptr);
 
-        if (isdigit(tokens[i][0])){
+        if (*endptr == '\0' && endptr != tokens[i]){
             char *end;
             t.type = TOKEN_NUMBER;
             t.value = strtod(tokens[i],&end);
@@ -109,6 +125,33 @@ Token token_create(char text[100]){
         else if (strcmp(tokens[i],")")==0){
             t.type = TOKEN_RPARENTHESIS;
         }
+        else if (strcmp(tokens[i],"sin")==0){
+            t.type = TOKEN_SIN;
+        }
+        else if (strcmp(tokens[i],"cos")==0){
+            t.type = TOKEN_COS;
+        }
+        else if (strcmp(tokens[i],"tan")==0){
+            t.type = TOKEN_TAN;
+        }
+        else if (strcmp(tokens[i],"sec")==0){
+            t.type = TOKEN_SEC;
+        }
+        else if (strcmp(tokens[i],"csc")==0){
+            t.type = TOKEN_CSC;
+        }
+        else if (strcmp(tokens[i],"cot")==0){
+            t.type = TOKEN_COT;
+        }
+        else if (strcmp(tokens[i],"^")==0){
+            t.type = TOKEN_POW;
+        }
+        else if (strcmp(tokens[i],"log")==0){
+            t.type = TOKEN_LOG;
+        }
+        else if (strcmp(tokens[i],"ln")==0){
+            t.type = TOKEN_LN;
+        }
         else{
             t.type = TOKEN_UNKNOWN;
         }
@@ -116,11 +159,7 @@ Token token_create(char text[100]){
         printf("%s: %d\n",tokens[i],t.type);
         struct_tokens[i] = t;
     }
-
-    for(i=0;i<token_count;i++){
-        printf("%s ",struct_tokens[i].substr);
-    }
-    return t;
+    return token_count;
 }
 
 /*
