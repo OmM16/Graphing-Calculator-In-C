@@ -22,10 +22,8 @@ typedef enum {
     TOKEN_SEC,    
     TOKEN_CSC,    
     TOKEN_COT, 
-    TOKEN_POW,      
     TOKEN_LOG,   
-    TOKEN_LN,
-    TOKEN_POW,     
+    TOKEN_LN,     
     TOKEN_UNKNOWN     
 } TokenType;
 
@@ -39,6 +37,7 @@ int token_create(char text[100], Token struct_tokens[100]);
 void parser(char text[100]);
 int is_function(TokenType t);
 int precedence(TokenType t);
+void plot_graph(double x_vals[201], double y_vals[201], int count);
 
 int main(){
     char text[100];
@@ -149,6 +148,7 @@ void parser(char text[100]){
     }
 
     if (has_variable) {
+        printf("\nx\t\ty\n");
         for (int k = -100; k <= 100; ++k) {
             double xv = (double)k;
             double val_stack[200];
@@ -194,6 +194,9 @@ void parser(char text[100]){
                 }
                 else {
                 }
+            }
+            if (val_top >= 0) {
+                printf("%g\t\t%g\n", xv, val_stack[val_top]);
             }
         }
     } 
@@ -241,100 +244,131 @@ void parser(char text[100]){
                 /* ignore unknown */
             }
         }
+        if (val_top >= 0) {
+            printf("\nResult: %g\n", val_stack[val_top]);
+        } else {
+            printf("\nError: Invalid expression\n");
+        }
     }
 }
 
 
 int token_create(char text[100], Token struct_tokens[100]){    
-    Token t;
-
-    int i=0;
-    Token token;
-    char temp[100];
-    char tokens[100][100];
-    strcpy(temp,text);
-
-    //printf("tdxt: %s",text);
-    //printf("temp: %s",temp);
-    //printf("reached tokenisation\n");
-
-    char *tokptr = strtok(temp, " ");
-
-    while (tokptr != NULL) {
-        //printf("%s\n", tokptr);
-        strcpy(tokens[i],tokptr);
-        //printf("%s",tokens[i]);
-        tokptr = strtok(NULL, " ");
-        i++;
-    }
-
-    //printf("reached struct declaration\n");
-
-    int token_count = i;
-    //printf("token_count : %d", token_count);
-
-    for(i=0;i<token_count;i++){
-        char *endptr;
+    int token_count = 0;
+    int i = 0;
+    
+    while (text[i] != '\0') {
+        Token t;
         t.type = TOKEN_UNKNOWN;
         strcpy(t.substr, "");
-        t.value = strtod(tokens[i], &endptr);
-
-        if (*endptr == '\0' && endptr != tokens[i]){
-            t.type = TOKEN_NUMBER;
+        t.value = 0.0;
+        
+        // Skip whitespace
+        while (text[i] != '\0' && isspace(text[i])) {
+            i++;
         }
-        else if (strcmp(tokens[i],"x")==0){
-            t.type = TOKEN_VARIABLE;
+        if (text[i] == '\0') break;
+        
+        // Check for number (including decimals)
+        if (isdigit(text[i]) || (text[i] == '.' && isdigit(text[i+1]))) {
+            char numstr[100];
+            int j = 0;
+            while (text[i] != '\0' && (isdigit(text[i]) || text[i] == '.')) {
+                numstr[j++] = text[i++];
+            }
+            numstr[j] = '\0';
+            t.type = TOKEN_NUMBER;
+            t.value = atof(numstr);
+            strcpy(t.substr, numstr);
+        }
+        // Check for operators and parentheses
+        else if (text[i] == '+') {
+            t.type = TOKEN_PLUS;
+            strcpy(t.substr, "+");
+            i++;
+        }
+        else if (text[i] == '-') {
+            t.type = TOKEN_MINUS;
+            strcpy(t.substr, "-");
+            i++;
+        }
+        else if (text[i] == '*') {
+            t.type = TOKEN_MULTIPLY;
+            strcpy(t.substr, "*");
+            i++;
+        }
+        else if (text[i] == '/') {
+            t.type = TOKEN_DIVIDE;
+            strcpy(t.substr, "/");
+            i++;
+        }
+        else if (text[i] == '^') {
+            t.type = TOKEN_POW;
+            strcpy(t.substr, "^");
+            i++;
+        }
+        else if (text[i] == '(') {
+            t.type = TOKEN_LPARENTHESIS;
+            strcpy(t.substr, "(");
+            i++;
+        }
+        else if (text[i] == ')') {
+            t.type = TOKEN_RPARENTHESIS;
+            strcpy(t.substr, ")");
+            i++;
+        }
+        // Check for functions and variables (letters)
+        else if (isalpha(text[i])) {
+            char word[100];
+            int j = 0;
+            while (text[i] != '\0' && isalpha(text[i])) {
+                word[j++] = text[i++];
+            }
+            word[j] = '\0';
+            strcpy(t.substr, word);
+            
+            if (strcmp(word, "x") == 0) {
+                t.type = TOKEN_VARIABLE;
+            }
+            else if (strcmp(word, "sin") == 0) {
+                t.type = TOKEN_SIN;
+            }
+            else if (strcmp(word, "cos") == 0) {
+                t.type = TOKEN_COS;
+            }
+            else if (strcmp(word, "tan") == 0) {
+                t.type = TOKEN_TAN;
+            }
+            else if (strcmp(word, "sec") == 0) {
+                t.type = TOKEN_SEC;
+            }
+            else if (strcmp(word, "csc") == 0) {
+                t.type = TOKEN_CSC;
+            }
+            else if (strcmp(word, "cot") == 0) {
+                t.type = TOKEN_COT;
+            }
+            else if (strcmp(word, "log") == 0) {
+                t.type = TOKEN_LOG;
+            }
+            else if (strcmp(word, "ln") == 0) {
+                t.type = TOKEN_LN;
+            }
+            else {
+                t.type = TOKEN_UNKNOWN;
+            }
+        }
+        else {
+            i++; // Skip unknown character
         }
         
-        else if (strcmp(tokens[i],"-")==0){
-            t.type = TOKEN_MINUS;
+        if (t.type != TOKEN_UNKNOWN) {
+            struct_tokens[token_count] = t;
+            printf("%s: %d\n", t.substr, t.type);
+            token_count++;
         }
-        else if (strcmp(tokens[i],"*")==0){
-            t.type = TOKEN_MULTIPLY;
-        }
-        else if (strcmp(tokens[i],"/")==0){
-            t.type = TOKEN_DIVIDE;
-        }
-        else if (strcmp(tokens[i],"(")==0){
-            t.type = TOKEN_LPARENTHESIS;
-        }
-        else if (strcmp(tokens[i],")")==0){
-            t.type = TOKEN_RPARENTHESIS;
-        }
-        else if (strcmp(tokens[i],"sin")==0){
-            t.type = TOKEN_SIN;
-        }
-        else if (strcmp(tokens[i],"cos")==0){
-            t.type = TOKEN_COS;
-        }
-        else if (strcmp(tokens[i],"tan")==0){
-            t.type = TOKEN_TAN;
-        }
-        else if (strcmp(tokens[i],"sec")==0){
-            t.type = TOKEN_SEC;
-        }
-        else if (strcmp(tokens[i],"csc")==0){
-            t.type = TOKEN_CSC;
-        }
-        else if (strcmp(tokens[i],"cot")==0){
-            t.type = TOKEN_COT;
-        }
-        else if (strcmp(tokens[i],"^")==0){
-            t.type = TOKEN_POW;
-        }
-        else if (strcmp(tokens[i],"log")==0){
-            t.type = TOKEN_LOG;
-        }
-        else if (strcmp(tokens[i],"ln")==0){
-            t.type = TOKEN_LN;
-        }
-        else{
-            t.type = TOKEN_UNKNOWN;
-        }
-        strcpy(t.substr,tokens[i]);
-        printf("%s: %d\n",tokens[i],t.type);
-        struct_tokens[i] = t;
     }
+    
     return token_count;
 }
 
