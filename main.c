@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 
 //void parser(char text[100]);
 
@@ -20,7 +21,8 @@ typedef enum {
     TOKEN_TAN,    
     TOKEN_SEC,    
     TOKEN_CSC,    
-    TOKEN_COT,       
+    TOKEN_COT, 
+    TOKEN_POW,      
     TOKEN_LOG,   
     TOKEN_LN,
     TOKEN_POW,     
@@ -35,6 +37,8 @@ typedef struct {
 
 int token_create(char text[100], Token struct_tokens[100]);
 void parser(char text[100]);
+int is_function(TokenType t);
+int precedence(TokenType t);
 
 int main(){
     char text[100];
@@ -50,16 +54,194 @@ int main(){
     return 0;
 }
 
+
+int precedence(TokenType t) {
+    switch (t) {
+        case TOKEN_PLUS: case TOKEN_MINUS: return 1;
+        case TOKEN_MULTIPLY: case TOKEN_DIVIDE: return 2;
+        case TOKEN_POW: return 3;
+        default: return 4;
+    }
+}
+
+int is_function(TokenType t) {
+    return (t == TOKEN_SIN || t == TOKEN_COS || t == TOKEN_TAN || t == TOKEN_SEC || t == TOKEN_CSC || t == TOKEN_COT || t == TOKEN_LOG || t == TOKEN_LN);
+}
+
 void parser(char text[100]){
     Token struct_tokens[100];
-    int token_count;
-    token_count = token_create(text, struct_tokens);
+    int token_count = token_create(text, struct_tokens);
     int i;
-    
-    for(i=0;i<token_count;i++){
-        printf("%s ",struct_tokens[i].substr);
+
+    int has_variable = 0;
+    for (i = 0; i < token_count; ++i) {
+        if (struct_tokens[i].type == TOKEN_VARIABLE) { has_variable = 1; break; }
     }
-    
+    double x_value = 0.0;
+
+    /* Shunting-yard: convert to RPN */
+    Token output_queue[200];
+    int out_count = 0;
+    Token op_stack[200];
+    int op_top = -1;
+
+    for (i = 0; i < token_count; ++i) {
+        Token tk = struct_tokens[i];
+        if (tk.type == TOKEN_NUMBER || tk.type == TOKEN_VARIABLE){
+            output_queue[out_count] = tk;
+            out_count++;
+        }
+
+        else if (is_function(tk.type)) {
+            op_stack[++op_top] = tk;
+        }
+
+        else if (tk.type == TOKEN_PLUS || tk.type == TOKEN_MINUS || tk.type == TOKEN_MULTIPLY || tk.type == TOKEN_DIVIDE || tk.type == TOKEN_POW){
+            while (op_top >= 0){
+                Token top = op_stack[op_top];
+                if (top.type == TOKEN_LPARENTHESIS){
+                    break;
+                }
+
+                int p_top = precedence(top.type);
+                int p_tok = precedence(tk.type);
+                int right_assoc = (tk.type == TOKEN_POW);
+
+                if ((p_top>p_tok) || (p_top==p_tok && !right_assoc) || is_function(top.type)){
+                    output_queue[out_count++] = top;
+                    op_top--;
+                }
+                else{
+                    break;
+                }
+            }
+            op_stack[++op_top] = tk;
+        }
+        else if (tk.type == TOKEN_LPARENTHESIS){
+            op_stack[++op_top] = tk;
+        }
+        else if (tk.type == TOKEN_RPARENTHESIS){
+            int found_lparen = 0;
+            while (op_top >= 0) {
+                Token top = op_stack[op_top--];
+                if (top.type == TOKEN_LPARENTHESIS){ 
+                    found_lparen = 1; 
+                    break; 
+                }
+                output_queue[out_count++] = top;
+            }
+            if (!found_lparen){ 
+                printf("Mismatched parentheses\n"); 
+                return; 
+            }
+            if (op_top >= 0 && is_function(op_stack[op_top].type)) {
+                output_queue[out_count++] = op_stack[op_top--];
+            }
+        }
+    }   
+
+    while (op_top >= 0) {
+        if (op_stack[op_top].type == TOKEN_LPARENTHESIS || op_stack[op_top].type == TOKEN_RPARENTHESIS){ 
+            printf("Mismatched parentheses\n"); 
+            return; 
+        }
+        output_queue[out_count++] = op_stack[op_top--];
+    }
+
+    if (has_variable) {
+        for (int k = -100; k <= 100; ++k) {
+            double xv = (double)k;
+            double val_stack[200];
+            int val_top = -1;
+            for (i = 0; i < out_count; ++i) {
+                Token tk = output_queue[i];
+                if (tk.type == TOKEN_NUMBER) {
+                    val_stack[++val_top] = tk.value;
+                }
+                else if (tk.type == TOKEN_VARIABLE) {
+                    val_stack[++val_top] = xv;
+                }
+                else if (tk.type == TOKEN_PLUS || tk.type == TOKEN_MINUS || tk.type == TOKEN_MULTIPLY || tk.type == TOKEN_DIVIDE || tk.type == TOKEN_POW) {
+                    if (val_top < 1){ 
+                        val_top = -2; break; 
+                    }
+                    double b = val_stack[val_top--];
+                    double a = val_stack[val_top--];
+                    double res = 0.0;
+                    if (tk.type == TOKEN_PLUS) res = a + b;
+                    else if (tk.type == TOKEN_MINUS) res = a - b;
+                    else if (tk.type == TOKEN_MULTIPLY) res = a * b;
+                    else if (tk.type == TOKEN_DIVIDE) res = a / b;
+                    else if (tk.type == TOKEN_POW) res = pow(a, b);
+                    val_stack[++val_top] = res;
+                }
+                else if (is_function(tk.type)) {
+                    if (val_top < 0) { val_top = -2; break; }
+                    double a = val_stack[val_top--];
+                    double res = 0.0;
+                    switch (tk.type) {
+                        case TOKEN_SIN: res = sin(a); break;
+                        case TOKEN_COS: res = cos(a); break;
+                        case TOKEN_TAN: res = tan(a); break;
+                        case TOKEN_SEC: res = 1.0 / cos(a); break;
+                        case TOKEN_CSC: res = 1.0 / sin(a); break;
+                        case TOKEN_COT: res = 1.0 / tan(a); break;
+                        case TOKEN_LOG: res = log10(a); break;
+                        case TOKEN_LN:  res = log(a); break;
+                        default: res = 0.0; break;
+                    }
+                    val_stack[++val_top] = res;
+                }
+                else {
+                }
+            }
+        }
+    } 
+    else {
+        double val_stack[200];
+        int val_top = -1;
+        for (i = 0; i < out_count; ++i) {
+            Token tk = output_queue[i];
+            if (tk.type == TOKEN_NUMBER) {
+                val_stack[++val_top] = tk.value;
+            }
+            else if (tk.type == TOKEN_PLUS || tk.type == TOKEN_MINUS || tk.type == TOKEN_MULTIPLY || tk.type == TOKEN_DIVIDE || tk.type == TOKEN_POW) {
+                if (val_top < 1){ 
+                    printf("Insufficient operands\n"); 
+                    return; 
+                }
+                double b = val_stack[val_top--];
+                double a = val_stack[val_top--];
+                double res = 0.0;
+                if (tk.type == TOKEN_PLUS) res = a + b;
+                else if (tk.type == TOKEN_MINUS) res = a - b;
+                else if (tk.type == TOKEN_MULTIPLY) res = a * b;
+                else if (tk.type == TOKEN_DIVIDE) res = a / b;
+                else if (tk.type == TOKEN_POW) res = pow(a, b);
+                val_stack[++val_top] = res;
+            }
+            else if (is_function(tk.type)) {
+                if (val_top < 0) { printf("Insufficient operands for function %s\n", tk.substr); return; }
+                double a = val_stack[val_top--];
+                double res = 0.0;
+                switch (tk.type) {
+                    case TOKEN_SIN: res = sin(a); break;
+                    case TOKEN_COS: res = cos(a); break;
+                    case TOKEN_TAN: res = tan(a); break;
+                    case TOKEN_SEC: res = 1.0 / cos(a); break;
+                    case TOKEN_CSC: res = 1.0 / sin(a); break;
+                    case TOKEN_COT: res = 1.0 / tan(a); break;
+                    case TOKEN_LOG: res = log10(a); break;
+                    case TOKEN_LN:  res = log(a); break;
+                    default: res = 0.0; break;
+                }
+                val_stack[++val_top] = res;
+            }
+            else {
+                /* ignore unknown */
+            }
+        }
+    }
 }
 
 
@@ -106,9 +288,6 @@ int token_create(char text[100], Token struct_tokens[100]){
         
         else if (strcmp(tokens[i],"-")==0){
             t.type = TOKEN_MINUS;
-        }
-        else if (strcmp(tokens[i],"+")==0){
-            t.type = TOKEN_PLUS;
         }
         else if (strcmp(tokens[i],"*")==0){
             t.type = TOKEN_MULTIPLY;
