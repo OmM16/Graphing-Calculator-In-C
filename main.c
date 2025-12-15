@@ -4,8 +4,6 @@
 #include <ctype.h>
 #include <math.h>
 
-//void parser(char text[100]);
-
 typedef enum {
     TOKEN_NUMBER = 0,     
     TOKEN_VARIABLE,   
@@ -37,22 +35,17 @@ int token_create(char text[100], Token struct_tokens[100]);
 void parser(char text[100]);
 int is_function(TokenType t);
 int precedence(TokenType t);
-void plot_graph(double x_vals[201], double y_vals[201], int count);
 
 int main(){
     char text[100];
-    //input eq
     printf("Enter the equation: ");
     scanf("%[^\n]", text);    
     printf("%s\n",text);
     
-    //sending to function to get values
     parser(text);
     
-    //printf("%d\n",eq);
     return 0;
 }
-
 
 int precedence(TokenType t) {
     switch (t) {
@@ -64,7 +57,9 @@ int precedence(TokenType t) {
 }
 
 int is_function(TokenType t) {
-    return (t == TOKEN_SIN || t == TOKEN_COS || t == TOKEN_TAN || t == TOKEN_SEC || t == TOKEN_CSC || t == TOKEN_COT || t == TOKEN_LOG || t == TOKEN_LN);
+    return (t == TOKEN_SIN || t == TOKEN_COS || t == TOKEN_TAN || 
+            t == TOKEN_SEC || t == TOKEN_CSC || t == TOKEN_COT || 
+            t == TOKEN_LOG || t == TOKEN_LN);
 }
 
 void parser(char text[100]){
@@ -74,9 +69,11 @@ void parser(char text[100]){
 
     int has_variable = 0;
     for (i = 0; i < token_count; ++i) {
-        if (struct_tokens[i].type == TOKEN_VARIABLE) { has_variable = 1; break; }
+        if (struct_tokens[i].type == TOKEN_VARIABLE) { 
+            has_variable = 1; 
+            break; 
+        }
     }
-    double x_value = 0.0;
 
     /* Shunting-yard: convert to RPN */
     Token output_queue[200];
@@ -87,26 +84,25 @@ void parser(char text[100]){
     for (i = 0; i < token_count; ++i) {
         Token tk = struct_tokens[i];
         if (tk.type == TOKEN_NUMBER || tk.type == TOKEN_VARIABLE){
-            output_queue[out_count] = tk;
-            out_count++;
+            output_queue[out_count++] = tk;
         }
-
         else if (is_function(tk.type)) {
             op_stack[++op_top] = tk;
         }
-
-        else if (tk.type == TOKEN_PLUS || tk.type == TOKEN_MINUS || tk.type == TOKEN_MULTIPLY || tk.type == TOKEN_DIVIDE || tk.type == TOKEN_POW){
+        else if (tk.type == TOKEN_PLUS || tk.type == TOKEN_MINUS || 
+                 tk.type == TOKEN_MULTIPLY || tk.type == TOKEN_DIVIDE || 
+                 tk.type == TOKEN_POW){
             while (op_top >= 0){
                 Token top = op_stack[op_top];
                 if (top.type == TOKEN_LPARENTHESIS){
                     break;
                 }
-
                 int p_top = precedence(top.type);
                 int p_tok = precedence(tk.type);
                 int right_assoc = (tk.type == TOKEN_POW);
 
-                if ((p_top>p_tok) || (p_top==p_tok && !right_assoc) || is_function(top.type)){
+                if ((p_top>p_tok) || (p_top==p_tok && !right_assoc) || 
+                    is_function(top.type)){
                     output_queue[out_count++] = top;
                     op_top--;
                 }
@@ -140,7 +136,8 @@ void parser(char text[100]){
     }   
 
     while (op_top >= 0) {
-        if (op_stack[op_top].type == TOKEN_LPARENTHESIS || op_stack[op_top].type == TOKEN_RPARENTHESIS){ 
+        if (op_stack[op_top].type == TOKEN_LPARENTHESIS || 
+            op_stack[op_top].type == TOKEN_RPARENTHESIS){ 
             printf("Mismatched parentheses\n"); 
             return; 
         }
@@ -148,11 +145,18 @@ void parser(char text[100]){
     }
 
     if (has_variable) {
+        FILE *fp = fopen("data.txt", "w");
+        if (fp == NULL) {
+            printf("Error opening file!\n");
+            return;
+        }
+        
         printf("\nx\t\ty\n");
         for (int k = -100; k <= 100; ++k) {
             double xv = (double)k;
             double val_stack[200];
             int val_top = -1;
+            
             for (i = 0; i < out_count; ++i) {
                 Token tk = output_queue[i];
                 if (tk.type == TOKEN_NUMBER) {
@@ -161,9 +165,12 @@ void parser(char text[100]){
                 else if (tk.type == TOKEN_VARIABLE) {
                     val_stack[++val_top] = xv;
                 }
-                else if (tk.type == TOKEN_PLUS || tk.type == TOKEN_MINUS || tk.type == TOKEN_MULTIPLY || tk.type == TOKEN_DIVIDE || tk.type == TOKEN_POW) {
+                else if (tk.type == TOKEN_PLUS || tk.type == TOKEN_MINUS || 
+                         tk.type == TOKEN_MULTIPLY || tk.type == TOKEN_DIVIDE || 
+                         tk.type == TOKEN_POW) {
                     if (val_top < 1){ 
-                        val_top = -2; break; 
+                        val_top = -2; 
+                        break; 
                     }
                     double b = val_stack[val_top--];
                     double a = val_stack[val_top--];
@@ -176,7 +183,10 @@ void parser(char text[100]){
                     val_stack[++val_top] = res;
                 }
                 else if (is_function(tk.type)) {
-                    if (val_top < 0) { val_top = -2; break; }
+                    if (val_top < 0) { 
+                        val_top = -2; 
+                        break; 
+                    }
                     double a = val_stack[val_top--];
                     double res = 0.0;
                     switch (tk.type) {
@@ -192,13 +202,18 @@ void parser(char text[100]){
                     }
                     val_stack[++val_top] = res;
                 }
-                else {
-                }
             }
+            
             if (val_top >= 0) {
-                printf("%g\t\t%g\n", xv, val_stack[val_top]);
+                double y = val_stack[val_top];
+                printf("%g\t\t%g\n", xv, y);
+                fprintf(fp, "%g %g\n", xv, y);
             }
         }
+        
+        fclose(fp);
+        printf("\nData written to data.txt\n");
+        system("gnuplot -persist -e \"plot 'data.txt' with lines title 'y=f(x)'\"");
     } 
     else {
         double val_stack[200];
@@ -208,7 +223,9 @@ void parser(char text[100]){
             if (tk.type == TOKEN_NUMBER) {
                 val_stack[++val_top] = tk.value;
             }
-            else if (tk.type == TOKEN_PLUS || tk.type == TOKEN_MINUS || tk.type == TOKEN_MULTIPLY || tk.type == TOKEN_DIVIDE || tk.type == TOKEN_POW) {
+            else if (tk.type == TOKEN_PLUS || tk.type == TOKEN_MINUS || 
+                     tk.type == TOKEN_MULTIPLY || tk.type == TOKEN_DIVIDE || 
+                     tk.type == TOKEN_POW) {
                 if (val_top < 1){ 
                     printf("Insufficient operands\n"); 
                     return; 
@@ -224,7 +241,10 @@ void parser(char text[100]){
                 val_stack[++val_top] = res;
             }
             else if (is_function(tk.type)) {
-                if (val_top < 0) { printf("Insufficient operands for function %s\n", tk.substr); return; }
+                if (val_top < 0) { 
+                    printf("Insufficient operands for function %s\n", tk.substr); 
+                    return; 
+                }
                 double a = val_stack[val_top--];
                 double res = 0.0;
                 switch (tk.type) {
@@ -240,9 +260,6 @@ void parser(char text[100]){
                 }
                 val_stack[++val_top] = res;
             }
-            else {
-                /* ignore unknown */
-            }
         }
         if (val_top >= 0) {
             printf("\nResult: %g\n", val_stack[val_top]);
@@ -251,7 +268,6 @@ void parser(char text[100]){
         }
     }
 }
-
 
 int token_create(char text[100], Token struct_tokens[100]){    
     int token_count = 0;
@@ -263,13 +279,11 @@ int token_create(char text[100], Token struct_tokens[100]){
         strcpy(t.substr, "");
         t.value = 0.0;
         
-        // Skip whitespace
         while (text[i] != '\0' && isspace(text[i])) {
             i++;
         }
         if (text[i] == '\0') break;
         
-        // Check for number (including decimals)
         if (isdigit(text[i]) || (text[i] == '.' && isdigit(text[i+1]))) {
             char numstr[100];
             int j = 0;
@@ -281,7 +295,6 @@ int token_create(char text[100], Token struct_tokens[100]){
             t.value = atof(numstr);
             strcpy(t.substr, numstr);
         }
-        // Check for operators and parentheses
         else if (text[i] == '+') {
             t.type = TOKEN_PLUS;
             strcpy(t.substr, "+");
@@ -317,7 +330,6 @@ int token_create(char text[100], Token struct_tokens[100]){
             strcpy(t.substr, ")");
             i++;
         }
-        // Check for functions and variables (letters)
         else if (isalpha(text[i])) {
             char word[100];
             int j = 0;
@@ -359,7 +371,7 @@ int token_create(char text[100], Token struct_tokens[100]){
             }
         }
         else {
-            i++; // Skip unknown character
+            i++;
         }
         
         if (t.type != TOKEN_UNKNOWN) {
@@ -372,57 +384,5 @@ int token_create(char text[100], Token struct_tokens[100]){
     return token_count;
 }
 
-/*
-//parser function
-void parser(char text[100]){
-    int i=0,a;
-    int val=0;
-    int x[201],y[100];
+
     
-    for (int k=0;k<=200;k++){
-        x[k]=k-100;
-    }
-    
-
-    for (int k=0;k<=200;k++){
-        printf("%d ",x[k]);
-    }
-
-
-    for (int k=0;k<=200;k++){
-        a=x[k];
-        //printf("%d",a);
-        while(text[i]!='\0'){
-            if (text[i]==' '){
-                continue;
-            }
-            if (text[i]=='x'){
-                if (text[i-1]>='0' && text[i-1]<='9'){
-                    if (text[i-2]=='+'){
-                        val+=a*(text[i-1]-'0');
-                        printf("%d",val);
-                    }
-                    else if (text[i-2]=='-'){
-                        val-=a*(text[i-1]-'0');
-                    }
-                }
-                else if (text[i-1]=='+'){
-                    val+=a;
-                }
-                else if (text[i-1]=='-'){
-                    val-=a;
-                }
-            }
-            i+=1;
-    
-        }
-        printf("%d ",val);
-        y[k]=val;
-        val=0;
-        i=0;
-    }
-
-    for (int k=0;k<=200;k++){
-        printf("%d ",y[k]);
-    }
-*/
