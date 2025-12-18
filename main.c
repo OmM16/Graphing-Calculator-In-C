@@ -152,7 +152,7 @@ void parser(char text[100]){
         }
         
         printf("\nx\t\ty\n");
-        for (int k = -100; k <= 100; ++k) {
+        for (double k = -100; k <=100; k+=0.01) {
             double xv = (double)k;
             double val_stack[200];
             int val_top = -1;
@@ -210,10 +210,26 @@ void parser(char text[100]){
                 fprintf(fp, "%g %g\n", xv, y);
             }
         }
-        
         fclose(fp);
         printf("\nData written to data.txt\n");
-        system("gnuplot -persist -e \"plot 'data.txt' with lines title 'y=f(x)'\"");
+
+        // Write gnuplot script
+        FILE *gp = fopen("plot.gp", "w");
+        if (gp != NULL) {
+            fprintf(gp, "set title 'Equation Plot'\n");
+            fprintf(gp, "set xlabel 'x'\n");
+            fprintf(gp, "set ylabel 'y'\n");
+            fprintf(gp, "set grid\n");
+            fprintf(gp, "set yrange [-10:10]\n");
+            fprintf(gp, "set style line 1 lc rgb '#0060ad' lt 1 lw 2\n");
+            fprintf(gp, "plot 'data.txt' with lines ls 1 title 'y=f(x)'\n");
+            fprintf(gp, "pause -1\n");
+            fclose(gp);
+            system("gnuplot plot.gp");
+        } 
+        else {
+            printf("Error creating gnuplot script!\n");
+        }
     } 
     else {
         double val_stack[200];
@@ -383,6 +399,7 @@ int token_create(char text[100], Token struct_tokens[100]){
     
     return token_count;
 }
+
 
 
     
